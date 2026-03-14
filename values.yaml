@@ -65,8 +65,14 @@ resources:
   limits:
     memory: 2Gi
 
-securityContext:
-  enabled: true
+initContainerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ['ALL']
+
+containerSecurityContext: ~
+
+podSecurityContext:
   runAsUser: 0
   runAsGroup: 1000
   fsGroup: 1000

@@ -83,6 +83,10 @@ spec:
                   name: {{ .credentials.secretName }}
                   key: {{ .credentials.passwordKey }}
           {{- end }}
+          {{- with .Values.initContainerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
 
       containers:
         - name: unifi
@@ -96,10 +100,14 @@ spec:
             {{- end }}
           {{- end }}
           env:
+          {{- if or .Values.podSecurityContext.runAsUser .Values.env.PUID }}
             - name: PUID
-              value: "{{ .Values.env.PUID }}"
+              value: "{{ .Values.env.PUID | default .Values.podSecurityContext.runAsUser }}"
+          {{- end }}
+          {{- if or .Values.podSecurityContext.runAsGroup .Values.env.PGID }}
             - name: PGID
-              value: "{{ .Values.env.PGID }}"
+              value: "{{ .Values.env.PGID | default .Values.podSecurityContext.runAsGroup }}"
+          {{- end }}
             - name: TZ
               value: "{{ .Values.env.TZ }}"
           {{- with .Values.database }}
@@ -129,6 +137,10 @@ spec:
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: config
               mountPath: /config
@@ -159,16 +171,11 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-
-      {{- if .Values.securityContext.enabled }}
+      volumes:
+      {{- with .Values.podSecurityContext }}
       securityContext:
-        fsGroup: {{ .Values.securityContext.fsGroup }}
-        fsGroupChangePolicy: {{ .Values.securityContext.fsGroupChangePolicy | quote }}
-        runAsUser: {{ .Values.securityContext.runAsUser }}
-        runAsGroup: {{ .Values.securityContext.runAsGroup }}
-        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
-
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
