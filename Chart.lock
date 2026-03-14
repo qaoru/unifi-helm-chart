@@ -1,6 +1,0 @@
-dependencies:
-- name: unpoller
-  repository: file://../helm-chart/charts/unpoller/
-  version: 2.1.0
-digest: sha256:dd70c705f84f5f1f47582fb32025a97ae3e9f83590273203f1c044c1eda20355
-generated: "2026-03-13T14:13:29.021128103+01:00"
