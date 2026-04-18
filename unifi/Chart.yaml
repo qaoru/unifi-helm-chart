@@ -4,7 +4,7 @@ type: application
 name: unifi
 description: The unifi software is a powerful, enterprise wireless software engine ideal for high-density client deployments requiring low latency and high uptime performance.
 version: 1.0.0
-appVersion: 10.1.85-ls119
+appVersion: 10.1.89-ls124
 maintainers:
   - name: qaoru
     email: paul@qaoru.fr

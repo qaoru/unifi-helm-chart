@@ -1,33 +1,60 @@
+# -- Image configuration
 image:
+  ## -- Container image repository
   repository: linuxserver/unifi-network-application
+  ## -- Container image tag (defaults to Chart appVersion)
   tag: ~
+  ## -- Image pull policy
   pullPolicy: IfNotPresent
 
+# -- Environment variables for the UniFi container
 env:
+  ## -- Process user ID
   PUID: "1000"
+  ## -- Process group ID
   PGID: "1000"
+  ## -- Timezone
   TZ: "Europe/Paris"
-  # Add custom env here if needed
-  # EXTRA_ARGS: ""
-extraEnv: []  # list of { name: "", value: "" }
 
+# -- Additional environment variables as a list of {name, value} objects
+extraEnv: []
+
+# -- MongoDB connection settings
 database:
+  ## -- MongoDB host
   host: "mongodb"
+  ## -- MongoDB port
   port: 27017
+  ## -- MongoDB database name
   dbName: unifi
+  ## -- MongoDB authentication source
   authSource: admin
+  ## -- Credentials for the UniFi database user
   credentials:
+    ## -- Whether to generate a secret with a random password
     generate: false
+    ## -- Name of the existing secret (or name to use when generating)
     secretName: "unifi-db-credentials"
+    ## -- Key in the secret for the username
     usernameKey: "username"
+    ## -- Key in the secret for the password
     passwordKey: "password"
+  ## -- Admin credentials used by the init container to create the UniFi DB user
   initCredentials:
+    ## -- Name of the secret containing admin credentials
     secretName: "unifi-db-credentials"
+    ## -- Key in the secret for the admin username
     usernameKey: "admin-username"
+    ## -- Key in the secret for the admin password
     passwordKey: "admin-password"
 
+# -- Network policy configuration
 networkPolicy:
+  ## -- Enable network policy creation
   enabled: false
+  ## -- Policy flavor: "kubernetes" or "cilium"
+  flavor: kubernetes
+  ## -- Cilium-specific egress and ingress rules (used when flavor is "cilium")
   cilium:
     egress:
     - toFQDNs:
@@ -51,19 +78,25 @@ networkPolicy:
     - toPorts:
       - ports:
         - port: http-inform
-  flavor: kubernetes
+  ## -- Standard Kubernetes NetworkPolicy ingress rules
   ingress:
   - ports:
     - protocol: TCP
       port: http-inform
+  ## -- Standard Kubernetes NetworkPolicy egress rules
   egress: {}
 
-# Pod settings
+# -- Number of replicas
 replicaCount: 1
+# -- Number of revisions to keep in history
 revisionHistoryLimit: 3
 
+# -- Additional pod annotations
 podAnnotations: {}
+# -- Additional pod labels
 podLabels: {}
+
+# -- Container port definitions
 podPorts:
   https-ui:
     containerPort: 8443
@@ -90,6 +123,7 @@ podPorts:
     containerPort: 5514
     protocol: UDP
 
+# -- Resource requests and limits
 resources:
   requests:
     cpu: 200m
@@ -97,61 +131,84 @@ resources:
   limits:
     memory: 2Gi
 
+# -- Security context for the init container
 initContainerSecurityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop: ['ALL']
 
+# -- Security context for the main container (defaults to none)
 containerSecurityContext: ~
 
+# -- Pod-level security context
 podSecurityContext:
   runAsUser: 0
   runAsGroup: 1000
   fsGroup: 1000
   fsGroupChangePolicy: "OnRootMismatch"
 
-# Probes against the controller UI on 8443
+# -- Liveness and readiness probe configuration
 probes:
   liveness:
+    ## -- Enable liveness probe
     enabled: true
+    ## -- Initial delay before first probe
     initialDelaySeconds: 20
+    ## -- Probe interval
     periodSeconds: 15
+    ## -- Probe timeout
     timeoutSeconds: 5
+    ## -- Number of failures before restart
     failureThreshold: 6
   readiness:
+    ## -- Enable readiness probe
     enabled: true
+    ## -- Initial delay before first probe
     initialDelaySeconds: 20
+    ## -- Probe interval
     periodSeconds: 10
+    ## -- Probe timeout
     timeoutSeconds: 5
+    ## -- Number of failures before marking unready
     failureThreshold: 12
 
+# -- Service account configuration
 serviceAccount:
-  # Specifies whether a service account should be created
+  ## -- Whether to create a service account
   create: true
-  # Automatically mount a ServiceAccount's API credentials?
+  ## -- Whether to automount the service account token
   automount: false
-  # Annotations to add to the service account
+  ## -- Annotations for the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  ## -- Service account name (auto-generated if empty and create is true)
   name: ""
 
-# Persistent data at /config
+# -- Persistence configuration for /config
 persistence:
+  ## -- Enable persistent storage
   enabled: true
+  ## -- Storage class (empty string uses default)
   storageClass: ""
+  ## -- Access modes for the PVC
   accessModes: ["ReadWriteOnce"]
+  ## -- PVC size
   size: 5Gi
+  ## -- Annotations for the PVC
   annotations: {}
 
+# -- Service definitions
 services:
-  # internal use only because other port must be reachable from devices
+  ## -- Internal service (ClusterIP, exposes HTTPS UI only)
   internal:
+    ## -- Enable the internal service
     enabled: true
+    ## -- Service type
     type: ClusterIP
+    ## -- Service annotations
     annotations: {}
+    ## -- Load balancer IP (used when type is LoadBalancer)
     loadBalancerIP: ""
-    # must refer to podPorts
+    ## -- Ports to enable (must match podPorts keys)
     enablePorts:
       https-ui: true
       http-inform: false
@@ -161,11 +218,17 @@ services:
       stun: false
       discovery: false
       syslog: false
+  ## -- Public service (LoadBalancer, exposes all UniFi ports)
   public:
+    ## -- Enable the public service
     enabled: false
+    ## -- Service type
     type: LoadBalancer
+    ## -- Service annotations
     annotations: {}
+    ## -- Load balancer IP
     loadBalancerIP: ""
+    ## -- Ports to enable (must match podPorts keys)
     enablePorts:
       https-ui: false
       http-inform: true
@@ -176,22 +239,32 @@ services:
       discovery: true
       syslog: true
 
+# -- Ingress configuration
 ingress:
+  ## -- Enable ingress
   enabled: false
+  ## -- Ingress class name
   className: ""
+  ## -- Ingress annotations
   annotations:
     server-ssl: "true"
+  ## -- Ingress host rules
   hosts:
     - host: unifi.example.com
       paths:
         - path: /
           pathType: Prefix
-  tls: [] # e.g. [{ hosts: ["unifi.example.com"], secretName: unifi-tls }]
+  ## -- TLS configuration (e.g. [{ hosts: ["unifi.example.com"], secretName: unifi-tls }])
+  tls: []
 
+# -- Node selector for pod scheduling
 nodeSelector: {}
+# -- Tolerations for pod scheduling
 tolerations: []
+# -- Affinity rules for pod scheduling
 affinity: {}
 
-# Extra containers/volumes if you need sidecars or custom mounts
+# -- Extra volume mounts for the main container
 extraVolumeMounts: []
+# -- Extra volumes for the pod
 extraVolumes: []
