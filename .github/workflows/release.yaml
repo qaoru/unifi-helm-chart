@@ -39,37 +39,26 @@ jobs:
       - name: Build Chart Dependencies
         run: helm dependency update unifi/
 
-      - name: Determine Release Tag
-        id: release_tag
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            TAG=$(grep "^version:" unifi/Chart.yaml | awk '{print $2}')
-            echo "tag=${TAG}" >> $GITHUB_OUTPUT
-            echo "Using versioned tag: ${TAG}"
-          else
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-            echo "Using branch tag: ${{ github.ref_name }}"
-          fi
+      - name: Lint Chart
+        run: helm lint unifi/
 
-      - name: Package and Push Chart to GHCR
+      - name: Package Chart
+        run: helm package unifi/ --destination ./chart-packages
+
+      - name: Push Chart to GHCR
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          RELEASE_TAG=${{ steps.release_tag.outputs.tag }}
-          
-          # Package with override version for branch pushes
-          helm package unifi/ --version "${RELEASE_TAG}" --destination ./chart-packages
-          
-          # Push to OCI registry
-          helm push "./chart-packages/unifi-${RELEASE_TAG}.tgz" oci://ghcr.io/qaoru/unifi
+          CHART_VERSION=$(grep "^version:" unifi/Chart.yaml | awk '{print $2}')
+          helm push "./chart-packages/unifi-${CHART_VERSION}.tgz" oci://ghcr.io/qaoru/unifi
 
       - name: Sign Chart with Cosign
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          RELEASE_TAG=${{ steps.release_tag.outputs.tag }}
-          CHART_REF="ghcr.io/qaoru/unifi:${RELEASE_TAG}"
-          
-          # Sign the chart
+          CHART_VERSION=$(grep "^version:" unifi/Chart.yaml | awk '{print $2}')
+          CHART_REF="ghcr.io/qaoru/unifi:${CHART_VERSION}"
           cosign sign --yes "${CHART_REF}"
 
-      - name: Create GitHub Release (on tags only)
+      - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
