@@ -3,19 +3,16 @@ apiVersion: v2
 type: application
 name: unifi
 description: The unifi software is a powerful, enterprise wireless software engine ideal for high-density client deployments requiring low latency and high uptime performance.
-version: 0.0.3
-appVersion: 10.0.160
-# icon: https://komga.org/img/logo.svg
+version: 1.0.0
+appVersion: 10.1.85-ls119
 maintainers:
   - name: qaoru
     email: paul@qaoru.fr
-# kubeVersion: ">= 1.18"
-# home: https://komga.org
-# keywords:
-#   - network
-# sources:
-#   - https://github.com/gotson/komga
-# dependencies:
-#   - name: common
-#     repository: https://rubxkube.github.io/common-charts
-#     version: v0.4.5
+keywords:
+  - network
+  - unifi
+dependencies:
+  - condition: metrics.enabled
+    name: unpoller
+    repository: https://unpoller.github.io/helm-chart
+    version: 2.2.0

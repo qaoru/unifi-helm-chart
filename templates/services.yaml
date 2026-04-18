@@ -1,5 +1,6 @@
 {{- range $name, $svc := .Values.services }}
 {{- if $svc.enabled }}
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -11,19 +12,62 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  type: {{ $svc.type }}
-  {{- if and (eq $svc.type "LoadBalancer") $svc.loadBalancerIP }}
-  loadBalancerIP: {{ $svc.loadBalancerIP }}
+  {{- if hasKey $svc "allocateLoadBalancerNodePorts" }}
+  allocateLoadBalancerNodePorts: {{ $svc.allocateLoadBalancerNodePorts }}
   {{- end }}
+  {{- if $svc.externalIPs }}
+  externalIPs:
+  {{   toYaml $svc.externalIPs | indent 4 }}
+  {{- end }}
+  {{- if $svc.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ $svc.externalTrafficPolicy }}
+  {{- end }}
+  ports:
+    {{- range $name, $state := $svc.enablePorts }}
+    {{-   if $state }}
+    - name: {{ $name }}
+      port: {{ (get $.Values.podPorts $name).containerPort }}
+      targetPort: {{ $name }}
+      protocol: {{ (get $.Values.podPorts $name).protocol }}
+    {{-   end }}
+    {{- end }}
   selector:
     {{- include "unifi.selectorLabels" $ | nindent 4 }}
-  ports:
-    {{- range $svc.ports }}
-    - name: {{ .name }}
-      port: {{ .port }}
-      targetPort: {{ .targetPort }}
-      protocol: {{ .protocol | default "TCP" }}
-    {{- end }}
----
+{{- if (or (eq $svc.type "ClusterIP") (empty $svc.type)) }}
+  type: ClusterIP
+  {{- if $svc.clusterIP }}
+  clusterIP: {{ $svc.clusterIP }}
+  {{end}}
+{{- else if eq $svc.type "LoadBalancer" }}
+  type: {{ $svc.type }}
+  {{- if $svc.loadBalancerIP }}
+  loadBalancerIP: {{ $svc.loadBalancerIP }}
+  {{- end }}
+  {{- if $svc.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml $svc.loadBalancerSourceRanges | indent 4 }}
+  {{- end -}}
+{{- else }}
+  type: {{ $svc.type }}
 {{- end }}
+{{- end }}
+{{- end }}
+
+{{- if and .Values.metrics.enabled .Values.services.internal.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: unifiunpoller
+  labels:
+    {{- include "unifi.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: https-ui
+      port: {{ (get $.Values.podPorts "https-ui").containerPort }}
+      targetPort: https-ui
+      protocol: {{ (get $.Values.podPorts "https-ui").protocol }}
+  selector:
+    {{- include "unifi.selectorLabels" $ | nindent 4 }}
 {{- end }}

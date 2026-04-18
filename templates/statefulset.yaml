@@ -51,7 +51,7 @@ spec:
                 db.updateUser("${UNIFI_DB_USER}", { pwd: "${UNIFI_DB_PASS}" })
               }
 
-              # Grant dbOwner on UniFi databases
+              // Grant dbOwner on UniFi databases
               db.grantRolesToUser("${UNIFI_DB_USER}", [{ role: "dbOwner", db: "unifi" }])
               db.grantRolesToUser("${UNIFI_DB_USER}", [{ role: "dbOwner", db: "unifi_stat" }])
               db.grantRolesToUser("${UNIFI_DB_USER}", [{ role: "dbOwner", db: "unifi_audit" }])
@@ -83,43 +83,31 @@ spec:
                   name: {{ .credentials.secretName }}
                   key: {{ .credentials.passwordKey }}
           {{- end }}
+          {{- with .Values.initContainerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
 
       containers:
         - name: unifi
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion  | toString }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.podPorts }}
           ports:
-            # TCP
-            - name: https-ui
-              containerPort: 8443
-              protocol: TCP
-            - name: inform
-              containerPort: 8080
-              protocol: TCP
-            - name: guest-https
-              containerPort: 8843
-              protocol: TCP
-            - name: guest-http
-              containerPort: 8880
-              protocol: TCP
-            - name: speedtest
-              containerPort: 6789
-              protocol: TCP
-            # UDP
-            - name: stun
-              containerPort: 3478
-              protocol: UDP
-            - name: discovery
-              containerPort: 10001
-              protocol: UDP
-            - name: syslog
-              containerPort: 5514
-              protocol: UDP
+            {{- range $name, $spec := . }}
+            - name: {{ $name }}
+              {{- toYaml $spec | nindent 14 }}
+            {{- end }}
+          {{- end }}
           env:
+          {{- if or .Values.podSecurityContext.runAsUser .Values.env.PUID }}
             - name: PUID
-              value: "{{ .Values.env.PUID }}"
+              value: "{{ .Values.env.PUID | default .Values.podSecurityContext.runAsUser }}"
+          {{- end }}
+          {{- if or .Values.podSecurityContext.runAsGroup .Values.env.PGID }}
             - name: PGID
-              value: "{{ .Values.env.PGID }}"
+              value: "{{ .Values.env.PGID | default .Values.podSecurityContext.runAsGroup }}"
+          {{- end }}
             - name: TZ
               value: "{{ .Values.env.TZ }}"
           {{- with .Values.database }}
@@ -149,6 +137,10 @@ spec:
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: config
               mountPath: /config
@@ -179,16 +171,11 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-
-      {{- if .Values.securityContext.enabled }}
+      volumes:
+      {{- with .Values.podSecurityContext }}
       securityContext:
-        fsGroup: {{ .Values.securityContext.fsGroup }}
-        fsGroupChangePolicy: {{ .Values.securityContext.fsGroupChangePolicy | quote }}
-        runAsUser: {{ .Values.securityContext.runAsUser }}
-        runAsGroup: {{ .Values.securityContext.runAsGroup }}
-        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
-
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -201,7 +188,6 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-
   {{- if .Values.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:

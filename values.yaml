@@ -1,6 +1,6 @@
 image:
   repository: linuxserver/unifi-network-application
-  tag: 10.0.160
+  tag: ~
   pullPolicy: IfNotPresent
 
 env:
@@ -17,6 +17,7 @@ database:
   dbName: unifi
   authSource: admin
   credentials:
+    generate: false
     secretName: "unifi-db-credentials"
     usernameKey: "username"
     passwordKey: "password"
@@ -25,6 +26,37 @@ database:
     usernameKey: "admin-username"
     passwordKey: "admin-password"
 
+networkPolicy:
+  enabled: false
+  cilium:
+    egress:
+    - toFQDNs:
+      - matchName: fw-update.ubnt.com
+      - matchName: fw-download.ubnt.com
+    - toEndpoints:
+      - matchLabels:
+          k8s:io.kubernetes.pod.namespace: kube-system
+          k8s:k8s-app: kube-dns
+      toPorts:
+      - ports:
+        - port: "53"
+          protocol: UDP
+        - port: "53"
+          protocol: TCP
+        rules:
+          dns:
+          - matchName: fw-update.ubnt.com
+          - matchName: fw-download.ubnt.com
+    ingress:
+    - toPorts:
+      - ports:
+        - port: http-inform
+  flavor: kubernetes
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: http-inform
+  egress: {}
 
 # Pod settings
 replicaCount: 1
@@ -32,6 +64,31 @@ revisionHistoryLimit: 3
 
 podAnnotations: {}
 podLabels: {}
+podPorts:
+  https-ui:
+    containerPort: 8443
+    protocol: TCP
+  http-inform:
+    containerPort: 8080
+    protocol: TCP
+  guest-https:
+    containerPort: 8843
+    protocol: TCP
+  guest-http:
+    containerPort: 8880
+    protocol: TCP
+  speedtest:
+    containerPort: 6789
+    protocol: TCP
+  stun:
+    containerPort: 3478
+    protocol: UDP
+  discovery:
+    containerPort: 10001
+    protocol: UDP
+  syslog:
+    containerPort: 5514
+    protocol: UDP
 
 resources:
   requests:
@@ -40,8 +97,14 @@ resources:
   limits:
     memory: 2Gi
 
-securityContext:
-  enabled: true
+initContainerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ['ALL']
+
+containerSecurityContext: ~
+
+podSecurityContext:
   runAsUser: 0
   runAsGroup: 1000
   fsGroup: 1000
@@ -51,13 +114,13 @@ securityContext:
 probes:
   liveness:
     enabled: true
-    initialDelaySeconds: 90
+    initialDelaySeconds: 20
     periodSeconds: 15
     timeoutSeconds: 5
     failureThreshold: 6
   readiness:
     enabled: true
-    initialDelaySeconds: 60
+    initialDelaySeconds: 20
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 12
@@ -82,62 +145,47 @@ persistence:
   annotations: {}
 
 services:
-  tcp:
-    enabled: true
-    type: ClusterIP            # or LoadBalancer / NodePort
-    annotations: {}
-    loadBalancerIP: ""
-    ports:
-      - name: https-ui
-        port: 8443
-        targetPort: 8443
-        protocol: TCP
-      - name: inform
-        port: 8080
-        targetPort: 8080
-        protocol: TCP
-      - name: guest-https
-        port: 8843
-        targetPort: 8843
-        protocol: TCP
-      - name: guest-http
-        port: 8880
-        targetPort: 8880
-        protocol: TCP
-      - name: speedtest
-        port: 6789
-        targetPort: 6789
-        protocol: TCP
-
-  udp:
+  # internal use only because other port must be reachable from devices
+  internal:
     enabled: true
     type: ClusterIP
     annotations: {}
     loadBalancerIP: ""
-    ports:
-      - name: stun
-        port: 3478
-        targetPort: 3478
-        protocol: UDP
-      - name: discovery
-        port: 10001
-        targetPort: 10001
-        protocol: UDP
-      - name: syslog
-        port: 5514
-        targetPort: 5514
-        protocol: UDP
+    # must refer to podPorts
+    enablePorts:
+      https-ui: true
+      http-inform: false
+      guest-https: false
+      guest-http: false
+      speedtest: false
+      stun: false
+      discovery: false
+      syslog: false
+  public:
+    enabled: false
+    type: LoadBalancer
+    annotations: {}
+    loadBalancerIP: ""
+    enablePorts:
+      https-ui: false
+      http-inform: true
+      guest-https: true
+      guest-http: true
+      speedtest: true
+      stun: true
+      discovery: true
+      syslog: true
 
 ingress:
   enabled: false
   className: ""
-  annotations: {}
+  annotations:
+    server-ssl: "true"
   hosts:
     - host: unifi.example.com
       paths:
         - path: /
           pathType: Prefix
-          servicePortName: https-ui
   tls: [] # e.g. [{ hosts: ["unifi.example.com"], secretName: unifi-tls }]
 
 nodeSelector: {}
@@ -147,3 +195,29 @@ affinity: {}
 # Extra containers/volumes if you need sidecars or custom mounts
 extraVolumeMounts: []
 extraVolumes: []
+
+
+metrics:
+  enabled: false
+
+  # generate monitoring credentials, you must configure it after pod bootstrap
+  unifiCredentials:
+    generate: true
+    secretName: "unifi-metrics-credentials"
+    usernameKey: "username"
+    passwordKey: "password"
+
+unpoller:
+  extraEnv:
+  - name: UP_UNIFI_CONTROLLER_0_URL
+    value: "https://unifiunpoller:8443"
+  - name: UP_UNIFI_CONTROLLER_0_USER
+    valueFrom:
+      secretKeyRef:
+        name: unifi-metrics-credentials
+        key: username
+  - name: UP_UNIFI_CONTROLLER_0_PASS
+    valueFrom:
+      secretKeyRef:
+        name: unifi-metrics-credentials
+        key: password
