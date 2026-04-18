@@ -39,13 +39,6 @@ jobs:
       - name: Build Chart Dependencies
         run: helm dependency update unifi/
 
-      - name: Get Chart Version
-        id: chart_version
-        run: |
-          CHART_VERSION=$(grep "^version:" unifi/Chart.yaml | awk '{print $2}')
-          echo "version=${CHART_VERSION}" >> $GITHUB_OUTPUT
-          echo "Chart version: ${CHART_VERSION}"
-
       - name: Determine Release Tag
         id: release_tag
         run: |
@@ -60,14 +53,13 @@ jobs:
 
       - name: Package and Push Chart to GHCR
         run: |
-          CHART_VERSION=${{ steps.chart_version.outputs.version }}
           RELEASE_TAG=${{ steps.release_tag.outputs.tag }}
           
-          # Package the chart (helm package outputs: unifi-${VERSION}.tgz)
-          helm package unifi/ --destination ./chart-packages
+          # Package with override version for branch pushes
+          helm package unifi/ --version "${RELEASE_TAG}" --destination ./chart-packages
           
           # Push to OCI registry
-          helm push "./chart-packages/unifi-${CHART_VERSION}.tgz" oci://ghcr.io/qaoru/unifi:${RELEASE_TAG}
+          helm push "./chart-packages/unifi-${RELEASE_TAG}.tgz" oci://ghcr.io/qaoru/unifi
 
       - name: Sign Chart with Cosign
         run: |
