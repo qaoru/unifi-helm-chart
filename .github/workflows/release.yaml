@@ -49,13 +49,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           CHART_VERSION=$(grep "^version:" unifi/Chart.yaml | awk '{print $2}')
-          helm push "./chart-packages/unifi-${CHART_VERSION}.tgz" oci://ghcr.io/qaoru/unifi
+          helm push "./chart-packages/unifi-${CHART_VERSION}.tgz" oci://ghcr.io/qaoru/helm-charts
 
       - name: Sign Chart with Cosign
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           CHART_VERSION=$(grep "^version:" unifi/Chart.yaml | awk '{print $2}')
-          CHART_REF="ghcr.io/qaoru/unifi:${CHART_VERSION}"
+          CHART_REF="ghcr.io/qaoru/helm-charts/unifi:${CHART_VERSION}"
           cosign sign --yes "${CHART_REF}"
 
       - name: Create GitHub Release

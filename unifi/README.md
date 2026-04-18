@@ -30,7 +30,7 @@ kubectl create secret generic unifi-db-credentials \
 ### 2. Install the chart
 
 ```bash
-helm install unifi oci://ghcr.io/qaoru/unifi --version 1.0.0 \
+helm install unifi oci://ghcr.io/qaoru/helm-charts/unifi --version 1.0.0 \
   --set database.host=<your-mongodb-host> \
   --set database.credentials.generate=true
 ```
@@ -38,7 +38,13 @@ helm install unifi oci://ghcr.io/qaoru/unifi --version 1.0.0 \
 Or with a local `values.yaml`:
 
 ```bash
-helm install unifi oci://ghcr.io/qaoru/unifi --version 1.0.0 -f values.yaml
+helm install unifi oci://ghcr.io/qaoru/helm-charts/unifi --version 1.0.0 -f values.yaml
+```
+
+Or with a local `values.yaml`:
+
+```bash
+helm install unifi oci://ghcr.io/qaoru/helm-charts/unifi --version 1.0.0 -f values.yaml
 ```
 
 ## Configuration
