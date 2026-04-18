@@ -17,7 +17,7 @@ spec:
   {{- end }}
   {{- if $svc.externalIPs }}
   externalIPs:
-  {{   toYaml $svc.externalIPs | indent 4 }}
+  {{- toYaml $svc.externalIPs | nindent 4 }}
   {{- end }}
   {{- if $svc.externalTrafficPolicy }}
   externalTrafficPolicy: {{ $svc.externalTrafficPolicy }}
@@ -45,7 +45,7 @@ spec:
   {{- end }}
   {{- if $svc.loadBalancerSourceRanges }}
   loadBalancerSourceRanges:
-{{ toYaml $svc.loadBalancerSourceRanges | indent 4 }}
+  {{- toYaml $svc.loadBalancerSourceRanges | nindent 4 }}
   {{- end -}}
 {{- else }}
   type: {{ $svc.type }}
