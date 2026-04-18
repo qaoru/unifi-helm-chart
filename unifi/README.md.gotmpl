@@ -1,0 +1,81 @@
+# {{ template "chart.name" . }}
+
+![Version: {{ .Version }}](https://img.shields.io/badge/Version-{{ .Version }}-informational?style=flat-square)
+![Type: {{ .Type }}](https://img.shields.io/badge/Type-{{ .Type }}-informational?style=flat-square)
+![AppVersion: {{ .AppVersion }}](https://img.shields.io/badge/AppVersion-{{ .AppVersion }}-informational?style=flat-square)
+
+{{ template "chart.description" . }}
+
+Runs the [linuxserver/unifi-network-application](https://hub.docker.com/r/linuxserver/unifi-network-application) container as a StatefulSet with persistent storage and MongoDB integration.
+
+## Prerequisites
+
+- Kubernetes >= 1.21
+- Helm >= 3.0
+- A running MongoDB instance accessible from the cluster
+- MongoDB admin credentials stored in a Kubernetes Secret
+
+## Installation
+
+### 1. Create MongoDB credentials secret
+
+The chart requires a secret containing MongoDB admin credentials for the init container to create the UniFi database user:
+
+```bash
+kubectl create secret generic unifi-db-credentials \
+  --from-literal=admin-username=<your-mongo-admin-user> \
+  --from-literal=admin-password=<your-mongo-admin-password>
+```
+
+### 2. Install the chart
+
+```bash
+helm install unifi oci://ghcr.io/qaoru/unifi --version {{ .Version }} \
+  --set database.host=<your-mongodb-host> \
+  --set database.credentials.generate=true
+```
+
+Or with a local `values.yaml`:
+
+```bash
+helm install unifi oci://ghcr.io/qaoru/unifi --version {{ .Version }} -f values.yaml
+```
+
+## Configuration
+
+### MongoDB
+
+The chart uses an init container (`mongo:7.0`) to automatically create the `unifi` database user and grant `dbOwner` roles on the required databases (`unifi`, `unifi_stat`, `unifi_audit`).
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `database.host` | MongoDB host | `"mongodb"` |
+| `database.port` | MongoDB port | `27017` |
+| `database.dbName` | Database name | `unifi` |
+| `database.authSource` | Authentication source | `admin` |
+| `database.credentials.generate` | Generate a secret with a random password | `false` |
+| `database.credentials.secretName` | Secret name for DB credentials | `"unifi-db-credentials"` |
+| `database.initCredentials.secretName` | Secret name for admin credentials | `"unifi-db-credentials"` |
+
+### Services
+
+Two service configurations are available:
+
+- **internal** (ClusterIP, enabled by default) — exposes only the HTTPS UI (port 8443)
+- **public** (LoadBalancer, disabled by default) — exposes all UniFi ports (HTTP inform, guest HTTP/HTTPS, speedtest, STUN, discovery, syslog)
+
+### Ingress
+
+Ingress is disabled by default. When enabled, it routes to the internal service on port 8443. TLS can be configured via the `ingress.tls` list.
+
+### Network Policies
+
+Supports both standard Kubernetes `NetworkPolicy` and `CiliumNetworkPolicy` (mutually exclusive). Select the flavor via `networkPolicy.flavor`: `kubernetes` or `cilium`.
+
+### Persistence
+
+Data is persisted at `/config` via a StatefulSet `volumeClaimTemplate` (default 5Gi). Set `persistence.enabled: false` to use an `emptyDir` instead.
+
+## Values
+
+{{ template "chart.valuesTable" . }}
