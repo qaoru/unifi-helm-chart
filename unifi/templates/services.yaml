@@ -29,8 +29,27 @@ spec:
       port: {{ (get $.Values.podPorts $name).containerPort }}
       targetPort: {{ $name }}
       protocol: {{ (get $.Values.podPorts $name).protocol }}
-    {{-   end }}
-    {{- end }}
+{{- end }}
+{{- end }}
+
+{{- if and .Values.metrics.enabled .Values.services.internal.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: unifiunpoller
+  labels:
+    {{- include "unifi.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: https-ui
+      port: {{ (get $.Values.podPorts "https-ui").containerPort }}
+      targetPort: https-ui
+      protocol: {{ (get $.Values.podPorts "https-ui").protocol }}
+  selector:
+    {{- include "unifi.selectorLabels" $ | nindent 4 }}
+{{- end }}
   selector:
     {{- include "unifi.selectorLabels" $ | nindent 4 }}
 {{- if (or (eq $svc.type "ClusterIP") (empty $svc.type)) }}
