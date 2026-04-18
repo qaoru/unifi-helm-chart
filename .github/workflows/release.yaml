@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - 'v*.*.*'
 
 permissions:
   contents: write
@@ -46,20 +46,33 @@ jobs:
           echo "version=${CHART_VERSION}" >> $GITHUB_OUTPUT
           echo "Chart version: ${CHART_VERSION}"
 
+      - name: Determine Release Tag
+        id: release_tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG=$(grep "^version:" unifi/Chart.yaml | awk '{print $2}')
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+            echo "Using versioned tag: ${TAG}"
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "Using branch tag: ${{ github.ref_name }}"
+          fi
+
       - name: Package and Push Chart to GHCR
         run: |
           CHART_VERSION=${{ steps.chart_version.outputs.version }}
+          RELEASE_TAG=${{ steps.release_tag.outputs.tag }}
           
           # Package the chart (helm package outputs: unifi-${VERSION}.tgz)
           helm package unifi/ --destination ./chart-packages
           
           # Push to OCI registry
-          helm push "./chart-packages/unifi-${CHART_VERSION}.tgz" oci://ghcr.io/qaoru
+          helm push "./chart-packages/unifi-${CHART_VERSION}.tgz" oci://ghcr.io/qaoru/unifi:${RELEASE_TAG}
 
       - name: Sign Chart with Cosign
         run: |
-          CHART_VERSION=${{ steps.chart_version.outputs.version }}
-          CHART_REF="ghcr.io/qaoru/unifi:${CHART_VERSION}"
+          RELEASE_TAG=${{ steps.release_tag.outputs.tag }}
+          CHART_REF="ghcr.io/qaoru/unifi:${RELEASE_TAG}"
           
           # Sign the chart
           cosign sign --yes "${CHART_REF}"
