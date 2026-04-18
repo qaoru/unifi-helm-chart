@@ -11,8 +11,3 @@ maintainers:
 keywords:
   - network
   - unifi
-dependencies:
-  - condition: metrics.enabled
-    name: unpoller
-    repository: https://unpoller.github.io/helm-chart
-    version: 2.1.0
